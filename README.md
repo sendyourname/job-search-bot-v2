@@ -1,4 +1,4 @@
-# Job Search Bot for Regan O'Connor
+# Job Search Bot
 
 Automated daily job search system that finds finance roles at startups, generates personalized cover letters, and sends push notifications.
 
@@ -129,10 +129,7 @@ In Railway dashboard → Variables, add all your `.env` values:
 - `ADZUNA_APP_ID` (optional)
 - `ADZUNA_APP_KEY` (optional)
 
-For Google credentials, you'll need to:
-1. Copy the contents of `credentials.json`
-2. Create a variable `GOOGLE_CREDENTIALS_JSON` with the JSON content
-3. Modify the code to read from environment variable (or use Railway's secret files feature)
+For Google credentials, create a variable `GOOGLE_CREDENTIALS_JSON` with the JSON content.
 
 ### 4. Configure Cron Schedule
 
@@ -158,43 +155,17 @@ schedule = "0 13 * * *"  # 13:00 UTC = 8 AM EST
 
 ### Modify Search Criteria
 
-Edit `src/config.py`:
-
-```python
-SEARCH_CRITERIA = {
-    "titles": [
-        "Financial Analyst",
-        "Strategic Finance",
-        # Add more titles...
-    ],
-    "exclude_keywords": [
-        "GTM Finance",
-        "Sales Finance",
-        # Add keywords to exclude...
-    ],
-    "min_salary": 150000,
-    # ...
-}
-```
+Edit `src/config.py` to change job titles, locations, salary requirements, etc.
 
 ### Update Candidate Profile
 
-Edit `src/config.py`:
-
-```python
-CANDIDATE_PROFILE = {
-    "name": "Regan O'Connor",
-    "current_role": "Financial Analyst (FP&A)",
-    # Update as needed...
-}
-```
+Edit `src/config.py` to update the candidate profile used for cover letter generation.
 
 ## Troubleshooting
 
 ### LinkedIn scraping fails
 - LinkedIn has anti-scraping measures
 - Try running with `headless=False` to debug
-- Consider using LinkedIn's official API if available
 
 ### Google Drive upload fails
 - Verify the service account email has access to the folder
@@ -217,7 +188,7 @@ job-search-bot/
 │   ├── services/            # External services
 │   └── database/            # Job tracking
 ├── data/
-│   └── resume.pdf           # Regan's resume
+│   └── resume.pdf           # Resume
 ├── requirements.txt
 ├── .env.example
 └── railway.toml
@@ -226,4 +197,3 @@ job-search-bot/
 ## License
 
 Private - for personal use only.
-# Job Search Bot
