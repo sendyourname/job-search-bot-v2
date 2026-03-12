@@ -66,6 +66,18 @@ class Settings(BaseSettings):
 
 # Job search criteria for Regan O'Connor
 SEARCH_CRITERIA = {
+    # Broad search queries for scrapers (LinkedIn fuzzy-matches, so fewer is better)
+    "search_queries": [
+        "Financial Analyst",
+        "FP&A",
+        "Strategic Finance",
+        "Product Finance",
+        "Head of Finance",
+        "Finance Manager",
+        "Finance Director",
+        "Corporate Finance",
+    ],
+    # Full title list used for matching/filtering results
     "titles": [
         # Core FP&A roles
         "Financial Analyst",

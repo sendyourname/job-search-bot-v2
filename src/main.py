@@ -95,7 +95,7 @@ class JobSearchBot:
             try:
                 logger.info(f"Scraping from {scraper.source.value}...")
                 jobs = await scraper.search(
-                    titles=SEARCH_CRITERIA["titles"],
+                    titles=SEARCH_CRITERIA.get("search_queries", SEARCH_CRITERIA["titles"]),
                     locations=SEARCH_CRITERIA["locations"],
                     min_salary=SEARCH_CRITERIA.get("min_salary", 0),
                     max_results=100,  # Get more jobs per source
