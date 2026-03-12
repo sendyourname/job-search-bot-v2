@@ -1,0 +1,11 @@
+[build]
+builder = "nixpacks"
+buildCommand = "pip install -r requirements.txt && playwright install chromium --with-deps"
+
+[deploy]
+startCommand = "python -m src.main"
+restartPolicyType = "never"
+
+# Run daily at 8 AM EST (13:00 UTC)
+[deploy.cron]
+schedule = "0 13 * * *"
