@@ -25,13 +25,27 @@ jobs:
           pip install -r requirements.txt
           playwright install chromium --with-deps
 
-      - name: Restore job database cache
+      - name: Restore job database
         uses: actions/cache@v4
         with:
           path: jobs.db
           key: jobs-db-${{ github.run_id }}
           restore-keys: |
             jobs-db-
+
+      - name: Send start notification
+        env:
+          PUSHOVER_USER_KEY: ${{ secrets.PUSHOVER_USER_KEY }}
+          PUSHOVER_API_TOKEN: ${{ secrets.PUSHOVER_API_TOKEN }}
+        run: |
+          curl -s -F "token=$PUSHOVER_API_TOKEN" \
+               -F "user=$PUSHOVER_USER_KEY" \
+               -F "title=🔄 Job Search Starting" \
+               -F "message=Daily job search bot is running." \
+               -F "url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+               -F "url_title=View Live Logs" \
+               -F "priority=-1" \
+               https://api.pushover.net/1/messages.json
 
       - name: Run job search bot
         env:
@@ -42,4 +56,20 @@ jobs:
           PUSHOVER_API_TOKEN: ${{ secrets.PUSHOVER_API_TOKEN }}
           ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
           ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
-        run: python -m src.main
+        run: python -u -m src.main 2>&1 | tee bot_output.log
+
+      - name: Upload run log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bot-log-${{ github.run_id }}
+          path: bot_output.log
+          retention-days: 30
+
+      - name: Upload job database
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jobs-db-${{ github.run_id }}
+          path: jobs.db
+          retention-days: 90
