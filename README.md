@@ -226,3 +226,4 @@ job-search-bot/
 ## License
 
 Private - for personal use only.
+# Job Search Bot
