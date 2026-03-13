@@ -134,6 +134,50 @@ SEARCH_CRITERIA = {
         "Trader",
         "Quant",
     ],
+    # Keywords that boost a job's score when found in the description
+    "preferred_keywords": [
+        "product finance",
+        "cross-functional",
+        "cross functional",
+        "business partner",
+        "stakeholder management",
+        "procurement",
+        "fp&a",
+        "strategic finance",
+    ],
+    # Keywords in descriptions that should penalize/skip a job
+    "avoid_keywords": [
+        "data visualization",
+        "data visualisation",
+        "market analysis",
+        "market research",
+        "equity research",
+    ],
+    # Companies to always exclude
+    "excluded_companies": [
+        "Nielsen",
+        "NielsenIQ",
+    ],
+    # Company age filter
+    "max_company_age_years": 30,
+    # Companies exempt from age filter (FAANG and similar)
+    "exempt_companies": [
+        "Google", "Alphabet",
+        "Apple",
+        "Amazon", "AWS",
+        "Meta", "Facebook",
+        "Netflix",
+        "Microsoft",
+        "Nvidia",
+        "Salesforce",
+        "Adobe",
+        "Oracle",
+        "Uber",
+        "Airbnb",
+        "Stripe",
+        "Spotify",
+        "Twitch",
+    ],
     "locations": [
         "New York, NY",
         "New York City",

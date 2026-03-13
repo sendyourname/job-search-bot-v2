@@ -85,6 +85,11 @@ class ClaudeClient:
                 "recommendation": "apply" | "maybe" | "skip"
             }
         """
+        preferred_kw = ', '.join(search_criteria.get('preferred_keywords', []))
+        avoid_kw = ', '.join(search_criteria.get('avoid_keywords', []))
+        exempt_companies = search_criteria.get('exempt_companies', [])
+        max_age = search_criteria.get('max_company_age_years', 30)
+
         system = """You are a career advisor helping match job opportunities to candidates.
 Analyze jobs objectively and provide honest assessments. Be concise."""
 
@@ -107,6 +112,12 @@ Analyze jobs objectively and provide honest assessments. Be concise."""
 - Min Salary: ${search_criteria.get('min_salary', 0):,}
 - Preferred Company Stage: {', '.join(search_criteria.get('company_filters', {}).get('stages', []))}
 
+## IMPORTANT Scoring Rules
+- BOOST score if description mentions: {preferred_kw}
+- PENALIZE score if the role is primarily focused on: {avoid_kw}
+- Company must be less than {max_age} years old UNLESS it is a major tech company (e.g., {', '.join(exempt_companies[:8])})
+- If the company is clearly an old/traditional/legacy company (founded before ~1996) and NOT a major tech company, set is_legacy_company to true
+
 Respond in this exact JSON format:
 {{
     "score": <1-10 integer>,
@@ -114,7 +125,8 @@ Respond in this exact JSON format:
     "pros": ["<pro 1>", "<pro 2>"],
     "cons": ["<con 1>", "<con 2>"],
     "recommendation": "<apply|maybe|skip>",
-    "is_gtm_sales": <true if this is GTM/Sales Finance, false otherwise>
+    "is_gtm_sales": <true if this is GTM/Sales Finance, false otherwise>,
+    "is_legacy_company": <true if company is over {max_age} years old and NOT a major tech company>
 }}"""
 
         response = await self.complete(prompt, system=system, temperature=0.3)

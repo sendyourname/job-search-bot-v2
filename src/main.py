@@ -301,53 +301,88 @@ class JobSearchBot:
                 except:
                     pass
 
-        if not results:
+        # Filter to only jobs not previously notified
+        new_results = []
+        for r in results:
+            job = r["job"]
+            db_job = self.db.get_job(job.id)
+            if db_job and db_job.notified_at:
+                logger.info(f"Skipping already-notified job: {job.title} at {job.company}")
+                continue
+            new_results.append(r)
+
+        if not new_results:
             # Send summary even if no matches
             total_scraped = len(all_analyzed) if all_analyzed else 0
             await self.notifier.send(
                 title="📊 Job Search: No New Matches",
-                message=f"Scraped {total_scraped} jobs today.\nNone matched criteria.\n\nSee rejection report for details.",
+                message=f"Scraped {total_scraped} jobs today.\nNone were new matches.\n\nSee rejection report for details.",
                 priority=-1,
             )
             return
 
-        # Build detailed notification message
-        lines = []
-        for r in results:
-            job = r["job"]
-            analysis = r["analysis"]
-            ai = analysis.get("ai_analysis", {})
-
-            score = ai.get("score", "?")
-            summary = ai.get("summary", "Good match")
-            pros = ai.get("pros", [])
-
-            lines.append(f"• {job.company}: {job.title}")
-            lines.append(f"  Score: {score}/10 - {summary}")
-            if pros:
-                lines.append(f"  ✓ {pros[0]}")
-            lines.append(f"  {job.url}")
-            lines.append("")
-
-        message = "\n".join(lines[:30])  # Limit message size
+        # Sort by score descending, take top 10
+        new_results.sort(
+            key=lambda r: r["analysis"].get("ai_analysis", {}).get("score", 0),
+            reverse=True,
+        )
+        top_results = new_results[:10]
 
         # Get Drive folder URL
         drive_url = None
         if self.drive:
             drive_url = f"https://drive.google.com/drive/folders/{self.settings.google_drive_folder_id}"
 
-        # Include rejection summary
+        # Send summary notification first
         rejected_count = len(self.rejected_jobs)
+        summary_msg = f"Scraped {len(all_analyzed)} jobs, {len(new_results)} new matches."
         if rejected_count > 0:
-            message += f"\n---\nSkipped {rejected_count} jobs (see report)"
+            summary_msg += f"\nSkipped {rejected_count} (see report)."
+        summary_msg += f"\nSending top {len(top_results)} below."
 
         await self.notifier.send(
-            title=f"🎯 {len(results)} Job Match{'es' if len(results) > 1 else ''}!",
-            message=message,
+            title=f"🎯 {len(new_results)} New Match{'es' if len(new_results) > 1 else ''}!",
+            message=summary_msg,
             url=drive_url,
-            url_title="View Cover Letters",
-            priority=1 if len(results) >= 3 else 0,
+            url_title="View in Google Drive",
+            priority=1 if len(new_results) >= 3 else 0,
         )
+
+        # Send top jobs in batches of 4 (fits in Pushover 1024 char limit)
+        batch_size = 4
+        notified_ids = []
+        for i in range(0, len(top_results), batch_size):
+            batch = top_results[i:i + batch_size]
+            batch_num = (i // batch_size) + 1
+            total_batches = (len(top_results) + batch_size - 1) // batch_size
+
+            lines = []
+            for r in batch:
+                job = r["job"]
+                ai = r["analysis"].get("ai_analysis", {})
+                score = ai.get("score", "?")
+                summary = ai.get("summary", "")
+                # Truncate summary to keep message compact
+                if len(summary) > 60:
+                    summary = summary[:57] + "..."
+                lines.append(f"• {job.company}: {job.title}")
+                lines.append(f"  {score}/10 — {summary}")
+                lines.append("")
+                notified_ids.append(job.id)
+
+            message = "\n".join(lines).strip()
+
+            await self.notifier.send(
+                title=f"Top Jobs ({batch_num}/{total_batches})",
+                message=message,
+                url=drive_url,
+                url_title="View Cover Letters",
+                priority=0,
+            )
+
+        # Mark all notified jobs in the database
+        if notified_ids:
+            self.db.mark_notified(notified_ids)
 
     async def run(self) -> dict:
         """

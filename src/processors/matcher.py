@@ -58,12 +58,22 @@ class JobMatcher:
         """
         title_lower = job.title.lower()
         desc_lower = job.description.lower() if job.description else ""
-        combined = f"{title_lower} {desc_lower}"
+        company_lower = job.company.lower() if job.company else ""
 
-        # Check excluded keywords
+        # Check excluded companies
+        for company_name in SEARCH_CRITERIA.get("excluded_companies", []):
+            if company_name.lower() in company_lower:
+                return False, f"Excluded company: {company_name}"
+
+        # Check excluded keywords in title
         for keyword in SEARCH_CRITERIA["exclude_keywords"]:
             if keyword.lower() in title_lower:
                 return False, f"Title contains excluded keyword: {keyword}"
+
+        # Check avoid keywords in description
+        for keyword in SEARCH_CRITERIA.get("avoid_keywords", []):
+            if keyword.lower() in title_lower:
+                return False, f"Title contains avoided keyword: {keyword}"
 
         # Check if title matches any target titles
         title_match = False
@@ -148,6 +158,11 @@ class JobMatcher:
 
             # Filter out GTM/Sales finance that slipped through
             if ai_result.get("is_gtm_sales"):
+                result["final_recommendation"] = "skip"
+                return result
+
+            # Filter out legacy companies
+            if ai_result.get("is_legacy_company"):
                 result["final_recommendation"] = "skip"
                 return result
 
