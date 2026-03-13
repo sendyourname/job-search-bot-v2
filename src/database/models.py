@@ -78,6 +78,14 @@ class Database:
         with self.get_session() as session:
             return session.query(Job).filter(Job.id == job_id).first() is not None
 
+    def job_exists_by_company_title(self, company: str, title: str) -> bool:
+        """Check if a job with same company+title already exists."""
+        with self.get_session() as session:
+            return session.query(Job).filter(
+                Job.company == company,
+                Job.title == title,
+            ).first() is not None
+
     def get_job(self, job_id: str) -> Optional[Job]:
         """Get a job by ID."""
         with self.get_session() as session:

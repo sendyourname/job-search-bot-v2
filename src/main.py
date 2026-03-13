@@ -89,6 +89,11 @@ class JobSearchBot:
     async def scrape_jobs(self) -> list[JobPosting]:
         """Scrape jobs from all sources."""
         logger.info("Starting job scraping...")
+
+        # Log DB state for debugging
+        stats = self.db.get_stats()
+        logger.info(f"Database state: {stats}")
+
         all_jobs = []
 
         for scraper in self.scrapers:
@@ -105,13 +110,31 @@ class JobSearchBot:
             except Exception as e:
                 logger.error(f"Error scraping {scraper.source.value}: {e}")
 
-        # Filter out already-seen jobs
-        new_jobs = []
+        # Dedup by job ID AND by company+title (catches same job with different IDs)
+        seen_ids = set()
+        seen_keys = set()
+        unique_jobs = []
         for job in all_jobs:
-            if not self.db.job_exists(job.id):
-                new_jobs.append(job)
+            dedup_key = f"{job.company.lower().strip()}|{job.title.lower().strip()}"
+            if job.id not in seen_ids and dedup_key not in seen_keys:
+                seen_ids.add(job.id)
+                seen_keys.add(dedup_key)
+                unique_jobs.append(job)
 
-        logger.info(f"Total: {len(all_jobs)} jobs, {len(new_jobs)} new")
+        dupes_removed = len(all_jobs) - len(unique_jobs)
+        if dupes_removed:
+            logger.info(f"Removed {dupes_removed} duplicate listings")
+
+        # Filter out already-seen jobs (by ID or company+title)
+        new_jobs = []
+        for job in unique_jobs:
+            if self.db.job_exists(job.id):
+                continue
+            if self.db.job_exists_by_company_title(job.company, job.title):
+                continue
+            new_jobs.append(job)
+
+        logger.info(f"Total: {len(all_jobs)} scraped, {len(unique_jobs)} unique, {len(new_jobs)} new")
         return new_jobs
 
     async def process_jobs(self, jobs: list[JobPosting]) -> list[tuple[JobPosting, dict]]:
