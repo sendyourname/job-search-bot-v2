@@ -121,6 +121,33 @@ class JobSearchBot:
         analyzed = await self.matcher.batch_analyze(jobs, skip_ai_for_filtered=True)
         ranked = self.matcher.rank_jobs(analyzed)
 
+        # Save ALL jobs to DB immediately so they're never re-processed
+        for job, analysis in ranked:
+            if not self.db.job_exists(job.id):
+                job_data = {
+                    "id": job.id,
+                    "title": job.title,
+                    "company": job.company,
+                    "url": job.url,
+                    "source": job.source.value,
+                    "description": job.description or "",
+                    "location": job.location or "",
+                    "salary_min": job.salary_min,
+                    "salary_max": job.salary_max,
+                    "salary_text": job.salary_text or "",
+                    "company_stage": job.company_stage or "",
+                    "company_size": job.company_size or "",
+                    "is_remote": job.is_remote,
+                    "match_score": (analysis.get("ai_analysis") or {}).get("score"),
+                    "recommendation": analysis.get("final_recommendation", "skip"),
+                    "analysis_summary": (analysis.get("ai_analysis") or {}).get("summary", ""),
+                    "posted_date": job.posted_date,
+                    "analyzed_at": datetime.now(timezone.utc),
+                }
+                self.db.add_job(job_data)
+
+        logger.info(f"Saved {len(ranked)} jobs to database")
+
         # Track rejected jobs for reporting
         self.rejected_jobs = [
             (job, analysis) for job, analysis in ranked
@@ -200,31 +227,13 @@ class JobSearchBot:
                         job_url=job.url,
                     )
 
-                # Save to database
-                job_data = {
-                    "id": job.id,
-                    "title": job.title,
-                    "company": job.company,
-                    "url": job.url,
-                    "source": job.source.value,
-                    "description": job.description,
-                    "location": job.location,
-                    "salary_min": job.salary_min,
-                    "salary_max": job.salary_max,
-                    "salary_text": job.salary_text,
-                    "company_stage": job.company_stage or "",
-                    "company_size": job.company_size or "",
-                    "is_remote": job.is_remote,
-                    "match_score": analysis.get("ai_analysis", {}).get("score"),
-                    "recommendation": analysis.get("final_recommendation", ""),
-                    "analysis_summary": analysis.get("ai_analysis", {}).get("summary", ""),
-                    "cover_letter_generated": True,
-                    "drive_folder_id": drive_result.get("folder_id", "") if drive_result else "",
-                    "drive_folder_url": drive_result.get("folder_link", "") if drive_result else "",
-                    "posted_date": job.posted_date,
-                    "analyzed_at": datetime.now(timezone.utc),
-                }
-                self.db.add_job(job_data)
+                # Update DB record with drive info
+                self.db.update_job(
+                    job.id,
+                    cover_letter_generated=True,
+                    drive_folder_id=drive_result.get("folder_id", "") if drive_result else "",
+                    drive_folder_url=drive_result.get("folder_link", "") if drive_result else "",
+                )
 
                 results.append({
                     "job": job,
