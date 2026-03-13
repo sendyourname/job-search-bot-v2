@@ -282,6 +282,57 @@ class JobSearchBot:
 
         return "\n".join(lines)
 
+    def generate_daily_report(self, results: list[dict]) -> str:
+        """Generate a detailed daily report with full scoring reasoning."""
+        date_str = datetime.now().strftime('%Y-%m-%d')
+        lines = [
+            f"# Daily Job Search Report — {date_str}",
+            "",
+            f"**Total matches:** {len(results)}",
+            f"**Rejected:** {len(self.rejected_jobs)}",
+            "",
+            "---",
+            "",
+        ]
+
+        for i, r in enumerate(results, 1):
+            job = r["job"]
+            ai = r["analysis"].get("ai_analysis", {})
+            score = ai.get("score", "?")
+            summary = ai.get("summary", "")
+            pros = ai.get("pros", [])
+            cons = ai.get("cons", [])
+            rec = r["analysis"].get("final_recommendation", "?")
+            drive_result = r.get("drive_result", {})
+            drive_link = drive_result.get("folder_link", "") if drive_result else ""
+
+            lines.append(f"## {i}. {job.title} at {job.company}")
+            lines.append("")
+            lines.append(f"**Score:** {score}/10 | **Recommendation:** {rec}")
+            lines.append(f"**Location:** {job.location or 'Not specified'}")
+            if job.salary_text:
+                lines.append(f"**Salary:** {job.salary_text}")
+            lines.append(f"**Listing:** {job.url}")
+            if drive_link:
+                lines.append(f"**Cover Letter & HM Research:** {drive_link}")
+            lines.append("")
+            lines.append(f"**Summary:** {summary}")
+            lines.append("")
+            if pros:
+                lines.append("**Pros:**")
+                for pro in pros:
+                    lines.append(f"- {pro}")
+                lines.append("")
+            if cons:
+                lines.append("**Cons:**")
+                for con in cons:
+                    lines.append(f"- {con}")
+                lines.append("")
+            lines.append("---")
+            lines.append("")
+
+        return "\n".join(lines)
+
     async def send_notifications(self, results: list[dict], all_analyzed: list[tuple]) -> None:
         """Send notification about new matches with detailed reasoning."""
         # Generate rejection report and save it
@@ -291,7 +342,6 @@ class JobSearchBot:
             report_path.write_text(rejection_report)
             logger.info(f"Saved rejection report to {report_path}")
 
-            # Also upload to Drive if available
             if self.drive:
                 try:
                     self.drive.upload_text_file(
@@ -312,7 +362,6 @@ class JobSearchBot:
             new_results.append(r)
 
         if not new_results:
-            # Send summary even if no matches
             total_scraped = len(all_analyzed) if all_analyzed else 0
             await self.notifier.send(
                 title="📊 Job Search: No New Matches",
@@ -328,28 +377,46 @@ class JobSearchBot:
         )
         top_results = new_results[:10]
 
-        # Get Drive folder URL
-        drive_url = None
+        # Upload detailed daily report to Google Drive
+        daily_report = self.generate_daily_report(top_results)
+        report_url = None
         if self.drive:
+            try:
+                report_file = self.drive.upload_text_file(
+                    content=daily_report,
+                    filename=f"Daily Report - {datetime.now().strftime('%Y-%m-%d')}.md",
+                )
+                report_url = report_file.get("webViewLink")
+                logger.info(f"Uploaded daily report: {report_url}")
+            except Exception as e:
+                logger.warning(f"Failed to upload daily report: {e}")
+
+        # Save locally too
+        report_path = self.local_storage.output_dir / f"daily_report_{datetime.now().strftime('%Y%m%d')}.md"
+        report_path.write_text(daily_report)
+
+        # Get Drive folder URL as fallback
+        drive_url = report_url
+        if not drive_url and self.drive:
             drive_url = f"https://drive.google.com/drive/folders/{self.settings.google_drive_folder_id}"
 
-        # Send summary notification first
+        # Send summary notification with link to full report
         rejected_count = len(self.rejected_jobs)
         summary_msg = f"Scraped {len(all_analyzed)} jobs, {len(new_results)} new matches."
         if rejected_count > 0:
             summary_msg += f"\nSkipped {rejected_count} (see report)."
-        summary_msg += f"\nSending top {len(top_results)} below."
+        summary_msg += f"\nTop {len(top_results)} below with full reasoning in report."
 
         await self.notifier.send(
             title=f"🎯 {len(new_results)} New Match{'es' if len(new_results) > 1 else ''}!",
             message=summary_msg,
             url=drive_url,
-            url_title="View in Google Drive",
+            url_title="View Full Report",
             priority=1 if len(new_results) >= 3 else 0,
         )
 
-        # Send top jobs in batches of 4 (fits in Pushover 1024 char limit)
-        batch_size = 4
+        # Send top jobs in batches of 3 (HTML links use more chars)
+        batch_size = 3
         notified_ids = []
         for i in range(0, len(top_results), batch_size):
             batch = top_results[i:i + batch_size]
@@ -362,11 +429,14 @@ class JobSearchBot:
                 ai = r["analysis"].get("ai_analysis", {})
                 score = ai.get("score", "?")
                 summary = ai.get("summary", "")
-                # Truncate summary to keep message compact
-                if len(summary) > 60:
-                    summary = summary[:57] + "..."
-                lines.append(f"• {job.company}: {job.title}")
-                lines.append(f"  {score}/10 — {summary}")
+                pros = ai.get("pros", [])
+                if len(summary) > 80:
+                    summary = summary[:77] + "..."
+                # Hyperlink title to job listing
+                lines.append(f'<b>{job.company}</b>: <a href="{job.url}">{job.title}</a>')
+                lines.append(f"{score}/10 — {summary}")
+                if pros:
+                    lines.append(f"✓ {pros[0]}")
                 lines.append("")
                 notified_ids.append(job.id)
 
@@ -376,8 +446,9 @@ class JobSearchBot:
                 title=f"Top Jobs ({batch_num}/{total_batches})",
                 message=message,
                 url=drive_url,
-                url_title="View Cover Letters",
+                url_title="Full Report",
                 priority=0,
+                html=True,
             )
 
         # Mark all notified jobs in the database

@@ -42,6 +42,7 @@ class Notifier:
         url: Optional[str] = None,
         url_title: Optional[str] = None,
         priority: int = 0,
+        html: bool = False,
     ) -> bool:
         """
         Send a push notification.
@@ -52,6 +53,7 @@ class Notifier:
             url: Optional URL to include
             url_title: Title for the URL link
             priority: -2 (silent) to 2 (emergency)
+            html: Enable HTML formatting in message
 
         Returns:
             True if sent successfully
@@ -63,6 +65,9 @@ class Notifier:
             "message": message,
             "priority": priority,
         }
+
+        if html:
+            payload["html"] = 1
 
         if url:
             payload["url"] = url
