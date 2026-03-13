@@ -5,7 +5,7 @@ import io
 import os
 from pathlib import Path
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -37,6 +37,7 @@ class LocalFileStorage:
         job_url: str,
     ) -> dict:
         """Save job package to local files."""
+        date_str = datetime.now().strftime("%Y-%m-%d")
         timestamp = datetime.now().strftime("%Y%m%d")
         folder_name = self._sanitize_filename(f"{timestamp} - {company} - {job_title}")
         folder_path = self.output_dir / folder_name
@@ -45,12 +46,12 @@ class LocalFileStorage:
         files = []
 
         if cover_letter:
-            cl_path = folder_path / "Cover Letter.md"
+            cl_path = folder_path / f"Cover Letter — {date_str}.md"
             cl_path.write_text(cover_letter)
             files.append(str(cl_path))
 
         if hm_research:
-            hm_path = folder_path / "Hiring Manager Research.md"
+            hm_path = folder_path / f"Hiring Manager Research — {date_str}.md"
             hm_path.write_text(hm_research)
             files.append(str(hm_path))
 
@@ -59,13 +60,13 @@ class LocalFileStorage:
 **Company:** {company}
 **Title:** {job_title}
 **URL:** {job_url}
-**Saved:** {datetime.now().strftime("%Y-%m-%d %H:%M")}
+**Date:** {date_str}
 
 ---
 
 {job_details}
 """
-        job_path = folder_path / "Job Posting.md"
+        job_path = folder_path / f"Job Posting — {date_str}.md"
         job_path.write_text(job_content)
         files.append(str(job_path))
 
@@ -250,12 +251,13 @@ class GoogleDriveService:
         folder_link = f"https://drive.google.com/drive/folders/{folder_id}"
 
         files = []
+        date_str = datetime.now().strftime("%Y-%m-%d")
 
         # Upload cover letter
         if cover_letter:
             cl_file = self.upload_text_file(
                 content=cover_letter,
-                filename="Cover Letter.md",
+                filename=f"Cover Letter — {date_str}.md",
                 folder_id=folder_id,
             )
             files.append(cl_file)
@@ -264,7 +266,7 @@ class GoogleDriveService:
         if hm_research:
             hm_file = self.upload_text_file(
                 content=hm_research,
-                filename="Hiring Manager Research.md",
+                filename=f"Hiring Manager Research — {date_str}.md",
                 folder_id=folder_id,
             )
             files.append(hm_file)
@@ -275,7 +277,7 @@ class GoogleDriveService:
 **Company:** {company}
 **Title:** {job_title}
 **URL:** {job_url}
-**Saved:** {datetime.now().strftime("%Y-%m-%d %H:%M")}
+**Date:** {date_str}
 
 ---
 
@@ -283,7 +285,7 @@ class GoogleDriveService:
 """
         job_file = self.upload_text_file(
             content=job_content,
-            filename="Job Posting.md",
+            filename=f"Job Posting — {date_str}.md",
             folder_id=folder_id,
         )
         files.append(job_file)
@@ -328,3 +330,51 @@ class GoogleDriveService:
         results = self.service.files().list(**list_params).execute()
 
         return results.get('files', [])
+
+    def cleanup_old_files(self, max_age_days: int = 30) -> int:
+        """
+        Delete files and folders older than max_age_days from the Drive folder.
+
+        Args:
+            max_age_days: Delete items older than this many days
+
+        Returns:
+            Number of items deleted
+        """
+        cutoff = datetime.now(timezone.utc) - timedelta(days=max_age_days)
+        cutoff_str = cutoff.strftime("%Y-%m-%dT%H:%M:%S")
+
+        # Find all items in our folder created before the cutoff
+        query = (
+            f"'{self.folder_id}' in parents"
+            f" and createdTime < '{cutoff_str}'"
+            f" and trashed = false"
+        )
+
+        list_params = {
+            'q': query,
+            'pageSize': 100,
+            'fields': "files(id, name, createdTime, mimeType)",
+        }
+        if self.use_shared_drive:
+            list_params['supportsAllDrives'] = True
+            list_params['includeItemsFromAllDrives'] = True
+            list_params['corpora'] = 'allDrives'
+
+        results = self.service.files().list(**list_params).execute()
+        old_files = results.get('files', [])
+
+        deleted = 0
+        for f in old_files:
+            try:
+                delete_params = {'fileId': f['id']}
+                if self.use_shared_drive:
+                    delete_params['supportsAllDrives'] = True
+                self.service.files().delete(**delete_params).execute()
+                logger.info(f"Deleted old file: {f['name']} (created {f['createdTime']})")
+                deleted += 1
+            except Exception as e:
+                logger.warning(f"Failed to delete {f['name']}: {e}")
+
+        logger.info(f"Cleanup complete: deleted {deleted} items older than {max_age_days} days")
+        return deleted

@@ -491,6 +491,18 @@ class JobSearchBot:
             # Send notifications with detailed info
             await self.send_notifications(results, analyzed)
 
+            # Clean up old files from Google Drive (>30 days)
+            if self.drive:
+                try:
+                    deleted = self.drive.cleanup_old_files(max_age_days=30)
+                    if deleted:
+                        logger.info(f"Drive cleanup: removed {deleted} items older than 30 days")
+                except Exception as e:
+                    logger.warning(f"Drive cleanup failed: {e}")
+
+            # Clean up old local files too
+            self.db.cleanup_old_jobs(days=90)
+
             # Summary
             summary = {
                 "jobs_scraped": len(new_jobs),
