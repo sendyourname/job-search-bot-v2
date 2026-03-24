@@ -82,11 +82,11 @@ class JobMatcher:
                 title_match = True
                 break
 
-        # Also check for finance-related keywords
-        finance_keywords = ["finance", "fp&a", "fpa", "financial"]
-        has_finance = any(kw in title_lower for kw in finance_keywords)
+        # Also check for finance or partnership keywords
+        relevant_keywords = ["finance", "fp&a", "fpa", "financial", "partnership", "partnerships"]
+        has_relevant = any(kw in title_lower for kw in relevant_keywords)
 
-        if not title_match and not has_finance:
+        if not title_match and not has_relevant:
             return False, "Title doesn't match target roles"
 
         # Check salary if available

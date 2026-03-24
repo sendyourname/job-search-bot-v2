@@ -76,6 +76,8 @@ SEARCH_CRITERIA = {
         "Finance Manager",
         "Finance Director",
         "Corporate Finance",
+        "Product Partnerships",
+        "Strategic Partnerships",
     ],
     # Full title list used for matching/filtering results
     "titles": [
@@ -109,6 +111,14 @@ SEARCH_CRITERIA = {
         "Corporate Finance",
         "Business Finance",
         "Finance Operations",
+        # Product Partnerships
+        "Product Partnerships",
+        "Strategic Partnerships",
+        "Partnerships Manager",
+        "Product Partnership Manager",
+        "Strategic Partnership Manager",
+        "Head of Partnerships",
+        "Business Development",
     ],
     "exclude_keywords": [
         "GTM Finance",
@@ -144,6 +154,9 @@ SEARCH_CRITERIA = {
         "procurement",
         "fp&a",
         "strategic finance",
+        "product partnerships",
+        "strategic partnerships",
+        "partner management",
     ],
     # Keywords in descriptions that should penalize/skip a job
     "avoid_keywords": [
@@ -153,15 +166,10 @@ SEARCH_CRITERIA = {
         "market research",
         "equity research",
     ],
-    # Companies to always exclude
+    # Companies to always exclude (FAANG, big tech, legacy)
     "excluded_companies": [
-        "Nielsen",
-        "NielsenIQ",
-    ],
-    # Company age filter
-    "max_company_age_years": 30,
-    # Companies exempt from age filter (FAANG and similar)
-    "exempt_companies": [
+        "Nielsen", "NielsenIQ",
+        # FAANG / Big Tech
         "Google", "Alphabet",
         "Apple",
         "Amazon", "AWS",
@@ -174,9 +182,24 @@ SEARCH_CRITERIA = {
         "Oracle",
         "Uber",
         "Airbnb",
-        "Stripe",
         "Spotify",
         "Twitch",
+        "PayPal",
+        "Intel",
+        "IBM",
+        "Cisco",
+        "VMware",
+        "SAP",
+    ],
+    # Company age filter
+    "max_company_age_years": 30,
+    # Companies exempt from age filter (well-known but still startup-ish)
+    "exempt_companies": [
+        "Stripe",
+        "Figma",
+        "Notion",
+        "Datadog",
+        "Brex",
     ],
     "locations": [
         "New York, NY",
