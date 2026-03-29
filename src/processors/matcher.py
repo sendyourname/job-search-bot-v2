@@ -82,8 +82,11 @@ class JobMatcher:
                 title_match = True
                 break
 
-        # Also check for finance or partnership keywords
-        relevant_keywords = ["finance", "fp&a", "fpa", "financial", "partnership", "partnerships"]
+        # Also check for relevant keywords in title
+        relevant_keywords = [
+            "customer success", "csm", "account manager", "account management",
+            "partnership", "partnerships", "business development",
+        ]
         has_relevant = any(kw in title_lower for kw in relevant_keywords)
 
         if not title_match and not has_relevant:

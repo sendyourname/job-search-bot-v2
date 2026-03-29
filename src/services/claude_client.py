@@ -113,10 +113,12 @@ Analyze jobs objectively and provide honest assessments. Be concise."""
 - Preferred Company Stage: {', '.join(search_criteria.get('company_filters', {}).get('stages', []))}
 
 ## IMPORTANT Scoring Rules
+- The candidate is looking for roles at EARLY STAGE STARTUPS (Seed, Series A, Series B). Strongly prefer companies under 10 years old with fewer than 300 employees.
 - BOOST score if description mentions: {preferred_kw}
 - PENALIZE score if the role is primarily focused on: {avoid_kw}
-- Company must be less than {max_age} years old UNLESS it is a major tech company (e.g., {', '.join(exempt_companies[:8])})
-- If the company is clearly an old/traditional/legacy company (founded before ~1996) and NOT a major tech company, set is_legacy_company to true
+- PENALIZE score for large/established companies — this candidate wants startup energy and impact
+- Company must be less than {max_age} years old UNLESS it is a well-known newer tech company (e.g., {', '.join(exempt_companies[:8])})
+- If the company is clearly an old/established/enterprise company (founded before ~2011) and NOT a well-known newer tech company, set is_legacy_company to true
 
 Respond in this exact JSON format:
 {{
